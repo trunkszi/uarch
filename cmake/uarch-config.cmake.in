@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+include("${CMAKE_CURRENT_LIST_DIR}/UarchReflection.cmake")
+uarch_detect_reflection()
+include("${CMAKE_CURRENT_LIST_DIR}/uarch-targets.cmake")
+check_required_components(uarch)

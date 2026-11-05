@@ -1,0 +1,5 @@
+add_executable(flow_bench core/flow/flow_bench.cc)
+uarch_configure_internal(flow_bench)
+if(UARCH_BUILD_TESTS)
+add_test(NAME flow_bench COMMAND flow_bench)
+endif()

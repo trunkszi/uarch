@@ -1,0 +1,5 @@
+add_executable(fast_divisor_bench core/arithmetic/fast_divisor_bench.cc)
+uarch_configure_internal(fast_divisor_bench)
+if(UARCH_BUILD_TESTS)
+  add_test(NAME fast_divisor_bench COMMAND fast_divisor_bench)
+endif()

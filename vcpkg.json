@@ -1,0 +1,20 @@
+{
+  "name": "uarch",
+  "version": "0.1.0",
+  "description": "Runtime-free C++26 microarchitectural primitives",
+  "features": {
+    "tools": {
+      "description": "Verification CLI dependencies",
+      "dependencies": [
+        "clapp",
+        "glaze"
+      ]
+    },
+    "benches": {
+      "description": "Microbenchmark dependencies",
+      "dependencies": [
+        "benchmark"
+      ]
+    }
+  }
+}

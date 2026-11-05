@@ -1,0 +1,8 @@
+uarch_add_test(arch_token_test unit/arch/token_test.cc)
+uarch_add_test(arch_tier_test unit/arch/tier_test.cc)
+uarch_add_test(arch_entry_test unit/arch/entry_test.cc)
+uarch_add_test(arch_kernels_test unit/arch/kernels_test.cc)
+uarch_add_test(arch_consteval_test consteval/arch/arch_consteval_test.cc)
+uarch_add_compile_fail(token_default_ctor_fail compile_fail/arch/token_default_ctor_fail.cc)
+uarch_add_compile_fail(token_bit_cast_fail compile_fail/arch/token_bit_cast_fail.cc)
+uarch_add_compile_fail(cross_target_inline_fail compile_fail/arch/cross_target_inline_fail.cc)

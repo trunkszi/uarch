@@ -1,0 +1,5 @@
+add_executable(layout_bench core/layout/layout_bench.cc)
+uarch_configure_internal(layout_bench)
+if(UARCH_BUILD_TESTS)
+  add_test(NAME layout_bench COMMAND layout_bench)
+endif()

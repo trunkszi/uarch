@@ -1,0 +1,5 @@
+add_executable(soa_bench core/layout/soa_bench.cc)
+uarch_configure_internal(soa_bench)
+if(UARCH_BUILD_TESTS)
+ add_test(NAME soa_bench COMMAND soa_bench)
+endif()

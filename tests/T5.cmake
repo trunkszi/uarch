@@ -1,0 +1,8 @@
+uarch_add_test(fast_divisor_u32_test unit/core/arithmetic/fast_divisor_u32_test.cc)
+uarch_add_test(fast_divisor_u64_test unit/core/arithmetic/fast_divisor_u64_test.cc)
+uarch_add_test(power_of_two_test unit/core/arithmetic/power_of_two_test.cc)
+uarch_add_test(saturation_test unit/core/arithmetic/saturating_test.cc)
+uarch_add_test(prefetch_test unit/core/mem/prefetch_test.cc)
+uarch_add_test(arithmetic_consteval_test consteval/core/arithmetic/arithmetic_consteval_test.cc)
+uarch_add_compile_fail(zero_divisor_fail compile_fail/core/arithmetic/zero_divisor_fail.cc)
+uarch_add_compile_fail(invalid_power_of_two_fail compile_fail/core/arithmetic/invalid_power_of_two_fail.cc)
