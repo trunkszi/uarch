@@ -1,0 +1,5 @@
+uarch provides CMake targets:
+
+    find_package(uarch CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE uarch::uarch)
+    target_link_libraries(main PRIVATE uarch::detect)

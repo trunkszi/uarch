@@ -1,0 +1,5 @@
+add_executable(arch_bench arch_bench.cc)
+uarch_configure_internal(arch_bench)
+if(UARCH_BUILD_TESTS)
+  add_test(NAME arch_bench COMMAND arch_bench)
+endif()

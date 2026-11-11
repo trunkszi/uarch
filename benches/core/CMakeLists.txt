@@ -1,0 +1,35 @@
+add_executable(layout_bench layout/layout_bench.cc)
+uarch_configure_internal(layout_bench)
+if(UARCH_BUILD_TESTS)
+  add_test(NAME layout_bench COMMAND layout_bench)
+endif()
+
+add_executable(soa_bench layout/soa_bench.cc)
+uarch_configure_internal(soa_bench)
+if(UARCH_BUILD_TESTS)
+  add_test(NAME soa_bench COMMAND soa_bench)
+endif()
+
+add_executable(bits_bench bits/bits_bench.cc)
+uarch_configure_internal(bits_bench)
+
+add_executable(flow_bench flow/flow_bench.cc)
+uarch_configure_internal(flow_bench)
+if(UARCH_BUILD_TESTS)
+  add_test(NAME flow_bench COMMAND flow_bench)
+endif()
+
+add_executable(simd_bench simd/simd_bench.cc)
+uarch_configure_internal(simd_bench)
+
+add_executable(fast_divisor_bench arithmetic/fast_divisor_bench.cc)
+uarch_configure_internal(fast_divisor_bench)
+if(UARCH_BUILD_TESTS)
+  add_test(NAME fast_divisor_bench COMMAND fast_divisor_bench)
+endif()
+
+add_executable(delegate_bench flow/delegate_bench.cc)
+uarch_configure_internal(delegate_bench)
+if(UARCH_BUILD_TESTS)
+  add_test(NAME delegate_bench COMMAND delegate_bench)
+endif()

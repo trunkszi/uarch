@@ -1,0 +1,31 @@
+{
+  "name": "uarch",
+  "version-semver": "0.1.0",
+  "description": "C++26 microarchitectural primitives",
+  "homepage": "https://github.com/trunkszi/uarch",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ],
+  "features": {
+    "tools": {
+      "description": "Build codegen probes and uarch_verify",
+      "dependencies": [
+        "clapp"
+      ]
+    },
+    "benchmarks": {
+      "description": "Build benchmarks",
+      "dependencies": [
+        "benchmark"
+      ]
+    }
+  }
+}

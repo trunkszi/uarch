@@ -1,0 +1,184 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  cli-and-lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install build tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build xz-utils curl ccache zip unzip pkg-config ca-certificates gnupg wget
+          codename="$(. /etc/os-release && printf '%s' "${VERSION_CODENAME}")"
+          installed=0
+          if wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+              | sudo gpg --dearmor -o /usr/share/keyrings/apt-llvm-org.gpg; then
+            echo "deb [signed-by=/usr/share/keyrings/apt-llvm-org.gpg] http://apt.llvm.org/${codename}/ llvm-toolchain-${codename}-23 main" \
+              | sudo tee /etc/apt/sources.list.d/llvm-23.list >/dev/null
+            if sudo apt-get update && sudo apt-get install -y clang-tidy-23; then
+              installed=1
+            fi
+          fi
+          if [ "${installed}" -ne 1 ]; then
+            sudo rm -f /etc/apt/sources.list.d/llvm-23.list
+            sudo apt-get update
+            sudo apt-get install -y clang-tidy
+          fi
+      - name: Cache prebuilt toolchains
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/toolchain
+          key: uarch-toolchain-v0.0.1-r2-ubuntu22-${{ runner.os }}
+          restore-keys: |
+            uarch-toolchain-v0.0.1-r2-ubuntu22-${{ runner.os }}
+      - name: Configure CMake and vcpkg dependencies
+        run: bash .github/scripts/setup-ci-deps.sh
+      - name: Provision clang-glibc and gcc-glibc
+        run: |
+          set -euo pipefail
+          for sdk in clang-glibc gcc-glibc; do
+            cmake -S . -B "${{ runner.temp }}/provision-${sdk}" -G Ninja \
+              -DUARCH_TOOLCHAIN_NAME="${sdk}" \
+              -DUARCH_BUILD_TESTS=OFF -DUARCH_BUILD_EXAMPLES=OFF -DUARCH_BUILD_TOOLS=OFF \
+              -DUARCH_BUILD_BENCHES=OFF -DCMAKE_BUILD_TYPE=Release
+          done
+      - name: CLI tests
+        run: uv run --project scripts/cli pytest scripts/cli/tests -q
+      - name: Format
+        run: ./uarch format --check
+      - name: Tidy
+        run: ./uarch tidy -c clang-glibc
+
+  release-and-verify:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [clang-glibc, gcc-glibc, clang-musl, gcc-musl]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build xz-utils curl ccache zip unzip pkg-config
+      - name: Cache prebuilt toolchains
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/toolchain
+          key: uarch-toolchain-v0.0.1-r2-ubuntu22-${{ runner.os }}-${{ matrix.compiler }}
+          restore-keys: |
+            uarch-toolchain-v0.0.1-r2-ubuntu22-${{ runner.os }}-
+      - name: Configure CMake and vcpkg dependencies
+        run: bash .github/scripts/setup-ci-deps.sh
+      - name: Provision toolchain
+        run: |
+          set -euo pipefail
+          seen=""
+          for sdk in clang-glibc gcc-glibc ${{ matrix.compiler }}; do
+            case " ${seen} " in
+              *" ${sdk} "*) continue ;;
+            esac
+            seen="${seen} ${sdk}"
+            cmake -S . -B "${{ runner.temp }}/provision-${sdk}" -G Ninja \
+              -DUARCH_TOOLCHAIN_NAME="${sdk}" \
+              -DUARCH_BUILD_TESTS=OFF -DUARCH_BUILD_EXAMPLES=OFF -DUARCH_BUILD_TOOLS=OFF \
+              -DUARCH_BUILD_BENCHES=OFF -DCMAKE_BUILD_TYPE=Release
+          done
+      - name: Test
+        run: ./uarch test -c ${{ matrix.compiler }}
+      - name: Verify
+        run: ./uarch verify all -c ${{ matrix.compiler }}
+      - name: Install and consume
+        run: |
+          set -euo pipefail
+          preset="${{ matrix.compiler }}-release"
+          prefix="${RUNNER_TEMP}/uarch-prefix"
+          cmake --install "build/${preset}" --prefix "${prefix}"
+          consumer="${RUNNER_TEMP}/consumer"
+          mkdir -p "${consumer}"
+          cat > "${consumer}/CMakeLists.txt" <<'EOF'
+          cmake_minimum_required(VERSION 4.0)
+          project(uarch_consumer LANGUAGES CXX)
+          set(CMAKE_CXX_STANDARD 26)
+          set(CMAKE_CXX_STANDARD_REQUIRED ON)
+          set(CMAKE_CXX_EXTENSIONS OFF)
+          find_package(uarch CONFIG REQUIRED)
+          add_executable(consumer main.cc)
+          target_link_libraries(consumer PRIVATE uarch::uarch)
+          add_executable(freestanding_consumer freestanding.cc)
+          target_link_libraries(freestanding_consumer PRIVATE uarch::freestanding)
+          uarch_configure_runtime(consumer)
+          uarch_configure_runtime(freestanding_consumer)
+          EOF
+          cat > "${consumer}/main.cc" <<'EOF'
+          #include <cstdint>
+          #include <uarch/uarch.hpp>
+          int main() {
+            const auto chosen = uarch::select_register(uarch::predicate(true), std::uint64_t{1}, std::uint64_t{0});
+            const auto detected = uarch::detect::detect();
+            static_cast<void>(detected);
+            return chosen == std::uint64_t{1} ? 0 : 1;
+          }
+          EOF
+          cat > "${consumer}/freestanding.cc" <<'EOF'
+          #include <uarch/primitives.hpp>
+          int main() {
+            const auto label = uarch::FixedAscii<8>::from_truncating("uarch");
+            return uarch::PowerOfTwo<6>::value == 64 &&
+                   label.fnv1a64() == uarch::fnv1a64_literal("uarch") ? 0 : 1;
+          }
+          EOF
+          compiler="$(sed -n 's/^CMAKE_CXX_COMPILER:[^=]*=//p' "build/${preset}/CMakeCache.txt")"
+          test -n "${compiler}" && test -x "${compiler}" || exit 1
+          cmake -S "${consumer}" -B "${consumer}/build" -G Ninja \
+            -DCMAKE_CXX_COMPILER="${compiler}" \
+            -DCMAKE_PREFIX_PATH="${prefix}" \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build "${consumer}/build"
+          "${consumer}/build/consumer"
+          "${consumer}/build/freestanding_consumer"
+
+  sanitizers:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [clang-glibc, gcc-glibc]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build xz-utils curl ccache zip unzip pkg-config
+      - name: Cache prebuilt toolchains
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/toolchain
+          key: uarch-toolchain-v0.0.1-r2-ubuntu22-${{ runner.os }}
+          restore-keys: |
+            uarch-toolchain-v0.0.1-r2-ubuntu22-${{ runner.os }}
+      - name: Configure CMake and vcpkg dependencies
+        run: bash .github/scripts/setup-ci-deps.sh
+      - name: Provision toolchain
+        run: |
+          set -euo pipefail
+          seen=""
+          for sdk in clang-glibc gcc-glibc ${{ matrix.compiler }}; do
+            case " ${seen} " in
+              *" ${sdk} "*) continue ;;
+            esac
+            seen="${seen} ${sdk}"
+            cmake -S . -B "${{ runner.temp }}/provision-${sdk}" -G Ninja \
+              -DUARCH_TOOLCHAIN_NAME="${sdk}" \
+              -DUARCH_BUILD_TESTS=OFF -DUARCH_BUILD_EXAMPLES=OFF -DUARCH_BUILD_TOOLS=OFF \
+              -DUARCH_BUILD_BENCHES=OFF -DCMAKE_BUILD_TYPE=Release
+          done
+      - name: Sanitizer tests
+        run: ./uarch test --dev -c ${{ matrix.compiler }}

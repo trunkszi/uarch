@@ -1,0 +1,10 @@
+uarch_add_test(tier_id_consteval_test tiers/tier_id_consteval_test.cc)
+uarch_add_test(layout_consteval_test core/layout/layout_consteval_test.cc)
+uarch_add_test(bits_consteval_test core/bits/bits_consteval_test.cc)
+uarch_add_test(flow_consteval_test core/flow/flow_consteval_test.cc)
+uarch_add_test(arithmetic_consteval_test core/arithmetic/arithmetic_consteval_test.cc)
+uarch_add_test(simd_consteval_test core/simd/simd_consteval_test.cc)
+uarch_add_test(arch_consteval_test arch/arch_consteval_test.cc)
+uarch_add_test(soa_consteval_test core/layout/soa_consteval_test.cc)
+
+uarch_add_test(delegate_consteval_test core/flow/delegate_consteval_test.cc)

@@ -1,0 +1,2 @@
+add_executable(tier_id_bench tier_id_bench.cc)
+uarch_configure_internal(tier_id_bench)

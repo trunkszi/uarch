@@ -1,0 +1,2 @@
+add_executable(uarch_example_basic_usage basic_usage.cc)
+uarch_configure_internal(uarch_example_basic_usage)
