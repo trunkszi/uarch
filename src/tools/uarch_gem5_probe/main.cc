@@ -121,7 +121,7 @@ constexpr std::uint64_t combine(std::uint64_t acc, std::uint64_t index, std::uin
 }
 struct DelegateReceiver {
   std::uint64_t bias{17};
-  [[gnu::noinline]] std::uint64_t apply(std::uint64_t x) noexcept { return x + bias; }
+  [[nodiscard, gnu::noinline]] std::uint64_t apply(std::uint64_t x) const noexcept { return x + bias; }
 };
 template <std::size_t Probe>
 std::uint64_t run(std::uint64_t n) noexcept {

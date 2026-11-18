@@ -8,14 +8,15 @@ using uarch::flow::Callback;
 namespace {
 struct Receiver {
   int total{0};
+  int bias{0};
   constexpr void add(int x) noexcept { total += x; }
   int& reference() noexcept { return total; }
-  int boolean(bool value) noexcept { return value ? 1 : -1; }
-  int optional(std::optional<int> value) noexcept { return value.value_or(-1); }
-  int expected(std::expected<int, int> value) noexcept { return value ? *value : -1; }
-  int variant(std::variant<int, long> value) noexcept {
-    if (const auto* number = std::get_if<int>(&value)) return *number;
-    return static_cast<int>(*std::get_if<long>(&value));
+  [[nodiscard]] int boolean(bool value) const noexcept { return (value ? 1 : -1) + bias; }
+  [[nodiscard]] int optional(std::optional<int> value) const noexcept { return value.value_or(-1) + bias; }
+  [[nodiscard]] int expected(std::expected<int, int> value) const noexcept { return (value ? *value : -1) + bias; }
+  [[nodiscard]] int variant(std::variant<int, long> value) const noexcept {
+    if (const auto* number = std::get_if<int>(&value)) return *number + bias;
+    return static_cast<int>(*std::get_if<long>(&value)) + bias;
   }
   void batch(std::span<const int> values) noexcept {
     for (int value : values) total += value;
@@ -35,14 +36,14 @@ extern "C" int c_first(void* p, int value) noexcept { return raw(p, value); }
 extern "C" int c_last(int value, void* p) noexcept { return raw(p, value); }
 }  // namespace
 int main() {
-  Receiver receiver;
+  Receiver receiver{.bias = 2};
   auto boolean = Callback<int(bool)>::bind<&Receiver::boolean>(receiver);
   auto optional = Callback<int(std::optional<int>)>::bind<&Receiver::optional>(receiver);
   auto expected = Callback<int(std::expected<int, int>)>::bind<&Receiver::expected>(receiver);
   auto variant = Callback<int(std::variant<int, long>)>::bind<&Receiver::variant>(receiver);
-  if (boolean(true) != 1 || boolean(false) != -1 || optional(std::optional{7}) != 7 || optional(std::nullopt) != -1 ||
-      expected(std::expected<int, int>{9}) != 9 || expected(std::expected<int, int>{std::unexpected(3)}) != -1 ||
-      variant(std::variant<int, long>{11L}) != 11 || variant(std::variant<int, long>{13}) != 13)
+  if (boolean(true) != 3 || boolean(false) != 1 || optional(std::optional{7}) != 9 || optional(std::nullopt) != 1 ||
+      expected(std::expected<int, int>{9}) != 11 || expected(std::expected<int, int>{std::unexpected(3)}) != 1 ||
+      variant(std::variant<int, long>{11L}) != 13 || variant(std::variant<int, long>{13}) != 15)
     return 7;
   const auto add = Callback<void(int)>::bind<&Receiver::add>(receiver);
   add(3);

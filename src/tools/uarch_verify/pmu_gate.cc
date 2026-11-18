@@ -138,7 +138,7 @@ constexpr std::array probe_names{"flow_select_register_u64",
                                  "delegate_dispatch"};
 struct DelegateReceiver {
   std::uint64_t bias{17};
-  [[gnu::noinline]] std::uint64_t apply(std::uint64_t value) noexcept { return value + bias; }
+  [[nodiscard, gnu::noinline]] std::uint64_t apply(std::uint64_t value) const noexcept { return value + bias; }
 };
 template <std::size_t Probe, bool Reference>
 std::uint64_t probe_loop(std::uint64_t iterations) {

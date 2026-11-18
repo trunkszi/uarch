@@ -82,7 +82,7 @@ struct First {
 };
 struct Second {
   std::uint64_t second{7};
-  constexpr int read(int x) const& noexcept { return static_cast<int>(second) + x; }
+  [[nodiscard]] constexpr int read(int x) const& noexcept { return static_cast<int>(second) + x; }
   constexpr int write(int x) & noexcept {
     second = static_cast<std::uint64_t>(x);
     return x;
@@ -106,9 +106,10 @@ struct Big {
   constexpr ~Big() noexcept { ++*destroyed; }
 };
 struct Receiver {
-  constexpr int consume(Big value) noexcept { return *value.moves; }
-  constexpr int borrow(Big&& value) noexcept { return *value.moves; }
-  constexpr int constant(const Big& value) noexcept { return *value.moves; }
+  int bias{0};
+  [[nodiscard]] constexpr int consume(Big value) const noexcept { return *value.moves + bias; }
+  [[nodiscard]] constexpr int borrow(Big&& value) const noexcept { return *value.moves + bias; }
+  [[nodiscard]] constexpr int constant(const Big& value) const noexcept { return *value.moves + bias; }
 };
 static_assert(std::is_same_v<uarch::flow::CallArg<Big>, Big&&>);
 static_assert(!std::is_invocable_v<Callback<int(Big)>, Big&>);
@@ -140,13 +141,13 @@ consteval bool validate() {
   if (reset != D{}) return false;
   int moves = 0, dead = 0;
   Big big(moves, dead);
-  Receiver receiver;
+  const Receiver receiver{.bias = 3};
   auto consuming = Callback<int(Big)>::bind<&Receiver::consume>(receiver);
-  if (consuming(static_cast<Big&&>(big)) != 1 || moves != 1 || dead != 1) return false;
+  if (consuming(static_cast<Big&&>(big)) != 4 || moves != 1 || dead != 1) return false;
   moves = 0;
   dead = 0;
-  if (Callback<int(Big)>::bind<&Receiver::borrow>(receiver)(static_cast<Big&&>(big)) != 0 || dead != 0) return false;
-  return Callback<int(Big)>::bind<&Receiver::constant>(receiver)(static_cast<Big&&>(big)) == 0 && moves == 0;
+  if (Callback<int(Big)>::bind<&Receiver::borrow>(receiver)(static_cast<Big&&>(big)) != 3 || dead != 0) return false;
+  return Callback<int(Big)>::bind<&Receiver::constant>(receiver)(static_cast<Big&&>(big)) == 3 && moves == 0;
 }
 static_assert(validate());
 struct ExplicitReceiver {
@@ -167,20 +168,21 @@ consteval bool explicit_object() {
 }
 static_assert(explicit_object());
 struct WrapperReceiver {
-  constexpr int boolean(bool value) const noexcept { return value ? 1 : -1; }
-  constexpr int optional(std::optional<int> value) const noexcept { return value.value_or(-1); }
-  constexpr int expected(std::expected<int, int> value) const noexcept { return value ? *value : -1; }
-  constexpr int variant(std::variant<int, long> value) const noexcept {
-    if (const auto* number = std::get_if<int>(&value)) return *number;
-    return static_cast<int>(*std::get_if<long>(&value));
+  int bias{0};
+  [[nodiscard]] constexpr int boolean(bool value) const noexcept { return (value ? 1 : -1) + bias; }
+  [[nodiscard]] constexpr int optional(std::optional<int> value) const noexcept { return value.value_or(-1) + bias; }
+  [[nodiscard]] constexpr int expected(std::expected<int, int> value) const noexcept { return (value ? *value : -1) + bias; }
+  [[nodiscard]] constexpr int variant(std::variant<int, long> value) const noexcept {
+    if (const auto* number = std::get_if<int>(&value)) return *number + bias;
+    return static_cast<int>(*std::get_if<long>(&value)) + bias;
   }
 };
 consteval bool wrapper_calls() {
-  WrapperReceiver receiver;
-  return Callback<int(bool)>::bind<&WrapperReceiver::boolean>(receiver)(true) == 1 &&
-         Callback<int(std::optional<int>)>::bind<&WrapperReceiver::optional>(receiver)(std::optional{7}) == 7 &&
-         Callback<int(std::expected<int, int>)>::bind<&WrapperReceiver::expected>(receiver)(std::expected<int, int>{9}) == 9 &&
-         Callback<int(std::variant<int, long>)>::bind<&WrapperReceiver::variant>(receiver)(std::variant<int, long>{11L}) == 11;
+  const WrapperReceiver receiver{.bias = 2};
+  return Callback<int(bool)>::bind<&WrapperReceiver::boolean>(receiver)(true) == 3 &&
+         Callback<int(std::optional<int>)>::bind<&WrapperReceiver::optional>(receiver)(std::optional{7}) == 9 &&
+         Callback<int(std::expected<int, int>)>::bind<&WrapperReceiver::expected>(receiver)(std::expected<int, int>{9}) == 11 &&
+         Callback<int(std::variant<int, long>)>::bind<&WrapperReceiver::variant>(receiver)(std::variant<int, long>{11L}) == 13;
 }
 static_assert(wrapper_calls());
 
